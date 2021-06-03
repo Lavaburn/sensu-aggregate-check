@@ -33,6 +33,7 @@ type Config struct {
 	CritPercent        int
 	WarnCount          int
 	CritCount          int
+	AllowNoEvents      bool
 }
 
 // Auth represents the authentication info
@@ -199,6 +200,15 @@ var (
 			Default:   "",
 			Usage:     "TLS CA certificate bundle in PEM format",
 			Value:     &plugin.TrustedCAFile,
+		},
+		&sensu.PluginConfigOption{
+			Path:      "allow-no-events",
+			Env:       "",
+			Argument:  "allow-no-events",
+			Shorthand: "a",
+			Default:   false,
+			Usage:     "Return OK if no events were found (default returns Warning).",
+			Value:     &plugin.AllowNoEvents,
 		},
 	}
 )
@@ -425,8 +435,13 @@ func executeCheck(event *types.Event) (int, error) {
 	fmt.Printf("Counters: %+v\n", counters)
 
 	if counters.Total == 0 {
-		fmt.Printf("WARNING: No Events returned for Aggregate\n")
-		return sensu.CheckStateWarning, nil
+        if plugin.AllowNoEvents {
+		    fmt.Printf("OK: No Events returned for Aggregate\n")
+		    return sensu.CheckStateOK, nil
+		} else {
+		    fmt.Printf("WARNING: No Events returned for Aggregate\n")
+		    return sensu.CheckStateWarning, nil		
+		}
 	}
 
 	percent := int((float64(counters.Ok) / float64(counters.Total)) * 100)
